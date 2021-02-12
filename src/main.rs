@@ -1,3 +1,8 @@
+mod chip8;
+
+
 fn main() {
-    println!("Hello, world!");
+
+    //println!("{}", chip8::MEMORY_SIZE);
+
 }
