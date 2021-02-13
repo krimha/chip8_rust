@@ -88,6 +88,11 @@ impl Machine {
                         self.program_counter += 2;
                     }
                 },
+                0x6 => {
+                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
+                    let val = instruction.to_be_bytes()[1];
+                    self.v_reg[reg] = val;
+                }
 
                 _ => {},
             },
@@ -239,5 +244,18 @@ mod tests {
         machine.v_reg[1] = 5;
         machine.execute_instruction(0x5010);
         assert_eq!(machine.program_counter, 0x200);
+    }
+
+    #[test]
+    fn test_machine_execute_ld() {
+        let mut machine = Machine::new();
+        machine.execute_instruction(0x6023);
+        assert_eq!(machine.v_reg[0], 0x23);
+
+        machine.execute_instruction(0x6001);
+        assert_eq!(machine.v_reg[0], 0x1);
+
+        machine.execute_instruction(0x6123);
+        assert_eq!(machine.v_reg[1], 0x23);
     }
 }
