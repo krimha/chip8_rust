@@ -93,8 +93,17 @@ impl Machine {
                     let val = instruction.to_be_bytes()[1];
                     self.v_reg[reg] = val;
                 }
-
-                _ => {},
+                0x7 => { // Add Vx, byte
+                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
+                    let val = instruction.to_be_bytes()[1];
+                    self.v_reg[reg] += val;
+                },
+                0x8 => { // LD, Vx, Vy
+                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                    self.v_reg[reg1] = self.v_reg[reg2];
+                },
+                _ => {}
             },
         }
     }
@@ -257,5 +266,37 @@ mod tests {
 
         machine.execute_instruction(0x6123);
         assert_eq!(machine.v_reg[1], 0x23);
+    }
+
+    #[test]
+    fn test_mahine_execute_add() {
+        let mut m = Machine::new();
+        m.execute_instruction(0x7001);
+        assert_eq!(m.v_reg[0], 1);
+
+        m.execute_instruction(0x7112);
+        assert_eq!(m.v_reg[1], 0x12);
+
+        m.v_reg[2] = 0x1;
+        m.execute_instruction(0x7212);
+        assert_eq!(m.v_reg[2], 0x13);
+    }
+
+    #[test]
+    fn test_machine_execute_ld_reg() {
+        let mut m = Machine::new();
+
+        m.execute_instruction(0x8010);
+        assert_eq!(m.v_reg[0], m.v_reg[1]);
+
+        m.v_reg[2] = 4;
+        m.v_reg[3] = 6;
+        m.execute_instruction(0x8230);
+        assert_eq!(m.v_reg[2], 6);
+
+        m.v_reg[4] = 8;
+        m.v_reg[5] = 10;
+        m.execute_instruction(0x8450);
+        assert_eq!(m.v_reg[4], 10);
     }
 }
