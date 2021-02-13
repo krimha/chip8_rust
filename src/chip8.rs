@@ -72,7 +72,7 @@ impl Machine {
                     if self.v_reg[reg_num] == val {
                         self.program_counter += 2;
                     }
-                }
+                },
                 0x4 => {
                     // Best way to "cast" to usize?
                     let reg_num : usize = ((instruction & 0x0F00) >> 8).into();
@@ -80,7 +80,15 @@ impl Machine {
                     if self.v_reg[reg_num] != val {
                         self.program_counter += 2;
                     }
-                }
+                },
+                0x5 => {
+                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                    if self.v_reg[reg1] == self.v_reg[reg2] {
+                        self.program_counter += 2;
+                    }
+                },
+
                 _ => {},
             },
         }
@@ -218,5 +226,18 @@ mod tests {
         machine.v_reg[1] = 0x23;
         machine.execute_instruction(0x4123);
         assert_eq!(machine.program_counter, 0x200)
+    }
+
+    #[test]
+    fn test_machine_exeute_se_reg() {
+        let mut machine = Machine::new();
+        machine.v_reg[0] = 5;
+        machine.execute_instruction(0x5000);
+        assert_eq!(machine.program_counter, 0x202);
+
+        machine = Machine::new();
+        machine.v_reg[1] = 5;
+        machine.execute_instruction(0x5010);
+        assert_eq!(machine.program_counter, 0x200);
     }
 }
