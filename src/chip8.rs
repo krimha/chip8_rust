@@ -136,6 +136,11 @@ impl Machine {
                         let (val, underflow) = val1.overflowing_sub(val2);
                         self.v_reg[reg1] = val;
                         self.v_reg[0xF] = underflow as u8;
+                    },
+                    0x6 => {  // SHR  // TODO: Rewrite to use overflowing_shr?             
+                        let reg: usize = ((instruction & 0x0F00) >> 8).into();
+                        self.v_reg[0xF] = self.v_reg[reg] & 0x01;
+                        self.v_reg[reg] >>= 1;
                     }
                     _ => {}
                 },
@@ -432,5 +437,19 @@ mod tests {
         m.execute_instruction(0x8455);
         assert_eq!(m.v_reg[4], 0xFF);
         assert_eq!(m.v_reg[0xF], 0x1);
+    }
+
+    #[test]
+    fn test_machine_excute_shr() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 4;
+        m.v_reg[1] = 5;
+        m.execute_instruction(0x8016);
+        assert_eq!(m.v_reg[0], 2);            
+        assert_eq!(m.v_reg[0xF], 0);
+
+        m.execute_instruction(0x8116);
+        assert_eq!(m.v_reg[1], 2);
+        assert_eq!(m.v_reg[0xF], 1);
     }
 }
