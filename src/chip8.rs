@@ -169,6 +169,10 @@ impl Machine {
                 0xA => { // LD i register
                     self.i_reg = instruction & 0x0FFF;
                 },
+                0xB => { // JP + V0                                                                       
+                    self.program_counter = (instruction & 0x0FFF) + (self.v_reg[0] as u16);
+                }
+                
                 _ => {}
             },
         }
@@ -531,5 +535,15 @@ mod tests {
 
         m.execute_instruction(0xAFFF);
         assert_eq!(m.i_reg, 0xFFF);
+    }
+
+    #[test]
+    fn test_machine_execute_jp_pc() {
+        let mut m = Machine::new();
+
+        m.v_reg[0] = 1;
+        m.execute_instruction(0xB211);
+        assert_eq!(m.program_counter, 0x212);
+
     }
 }
