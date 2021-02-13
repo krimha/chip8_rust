@@ -159,6 +159,13 @@ impl Machine {
                     }
                     _ => {}
                 },
+                0x9 => { // SNE
+                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                    if self.v_reg[reg1] != self.v_reg[reg2] {
+                        self.program_counter += 2;
+                    }
+                }
                 _ => {}
             },
         }
@@ -497,5 +504,18 @@ mod tests {
         m.execute_instruction(0x811E);
         assert_eq!(m.v_reg[1], 0x10);
         assert_eq!(m.v_reg[0xF], 0);
+    }
+
+    #[test]
+    fn testmachine_execute_sne() {
+        let mut m = Machine::new();        
+        
+        m.v_reg[0] = 2;
+        m.execute_instruction(0x9010);
+        assert_eq!(m.program_counter, 0x202);
+
+        m = Machine::new();
+        m.execute_instruction(0x9000);
+        assert_eq!(m.program_counter, 0x200);
     }
 }
