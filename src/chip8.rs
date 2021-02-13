@@ -61,10 +61,25 @@ impl Machine {
             _ => match instruction >> 12 { 
                 0x0 => {}, // SYS - Do nothing (on modern systems)
                 0x1 => self.program_counter = instruction & 0x0FFF, // JP - PC jump to address 
+                0x2 => {
+                    self.stack_push(self.program_counter);
+                    self.program_counter = instruction & 0x0FFF;
+                },
                 _ => {},
             },
         }
     }
+
+    fn stack_peek(&self) -> u16 {
+        self.stack[self.stack_pointer]
+    }
+
+    fn stack_push(&mut self, val: u16) {
+        self.stack_pointer += 1;
+        self.stack[self.stack_pointer] = val;   
+    }
+
+
 
 
 }
@@ -143,22 +158,17 @@ mod tests {
         assert_eq!(machine.program_counter, 0x7AC);
     }
 
-//    #[test]
-//    fn test_machine_execute() {
-//        let identity = | m: &mut Machine | {};
-//
-//        let instructions = [
-//            (0x0000 as u16, identity, | m: &Machine| -> bool { return true; }), // 0x0nnn instuction is ignored
-//            ];
-//
-//        for (instruction, process, validator) in instructions.iter() {
-//            let mut machine = Machine::new();
-//            process(&mut machine);
-//            machine.execute(*instruction as u16);
-//            assert!(validator(&machine));
-//
-//        }
-//    }
+    #[test]
+    fn test_machine_execute_call() {
+        let instruction = 0x26C2;
+        let mut machine = Machine::new();
+        let pc_value = 0x678;
+        machine.program_counter = pc_value;
 
+        machine.execute_instruction(instruction);
 
+        assert_eq!(machine.stack_pointer, 1);
+        assert_eq!(machine.stack_peek(), pc_value);
+        assert_eq!(machine.program_counter, 0x6C2);
+    }
 }
