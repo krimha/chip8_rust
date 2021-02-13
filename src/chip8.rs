@@ -118,6 +118,15 @@ impl Machine {
                         let reg1: usize = ((instruction & 0x0F00) >> 8).into();
                         let reg2: usize = ((instruction & 0x00F0) >> 4).into();
                         self.v_reg[reg1] ^= self.v_reg[reg2];
+                    },
+                    0x4 => {
+                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                        let val1 = self.v_reg[reg1];
+                        let val2 = self.v_reg[reg2];
+                        let (val, overflow) = val1.overflowing_add(val2);
+                        self.v_reg[reg1] = val;
+                        self.v_reg[0xF] = overflow as u8;
                     }
                     _ => {}
                 },
@@ -370,5 +379,27 @@ mod tests {
         m.execute_instruction(0x8453);
         assert_eq!(m.v_reg[4], 0b11100111);
         assert_eq!(m.v_reg[5], 0b01011101);
+    }
+
+    #[test]
+    fn test_machine_execute_add() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 1;
+        m.execute_instruction(0x8014);
+        assert_eq!(m.v_reg[0], 1);
+
+        m.v_reg[2] = 23;
+        m.v_reg[3] = 20;
+        m.execute_instruction(0x8234);
+        assert_eq!(m.v_reg[2], 43);
+        assert_eq!(m.v_reg[3], 20);
+        assert_eq!(m.v_reg[0xF], 0x0);
+
+        m.v_reg[4] = 200;
+        m.v_reg[5] = 200;
+
+        m.execute_instruction(0x8454);
+        assert_eq!(m.v_reg[4], 0b10010000);
+        assert_eq!(m.v_reg[0xF], 0x1);
     }
 }
