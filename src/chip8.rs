@@ -11,7 +11,7 @@ pub struct Machine {
     v_reg: [u8; 16],      // Vx -registers (0...F)
     i_reg: u16,           // I-register used for memory addresses
     program_counter: u16, // Program counter. Points to current addresss    
-    stack_pointer: u8,    // Stack pointer. Points to top of stack
+    stack_pointer: usize,    // Stack pointer. Points to top of stack. Set to usize to allow it to index. *Can be* u8 according to docs
 
     stack: [u16; 16],
     keyboard: [bool; 16],   // Keys 0x0 - 0xF
@@ -51,9 +51,13 @@ impl Machine {
         
         match instruction {
             0x00E0 =>  // CLS - Clear screen
-                for val in self.display.iter_mut() { *val = 0; }
+                for val in self.display.iter_mut() { *val = 0; },
+            0x00EE => { // RET - Return from subroutine             
+                self.program_counter = self.stack[self.stack_pointer];
+                self.stack_pointer -= 1;
+            },
 
-            _ => {}
+            _ => {},
         }
     }
 
@@ -108,10 +112,21 @@ mod tests {
         machine.execute_instruction(instruction);
 
         assert_eq!(machine.display, [0;32]);
+    }
 
+    #[test]
+    fn test_machine_execute_ret() {
+        let instruction = 0x00EE;
+        let mut machine = Machine::new();
 
-        //machine.display = [1: u64; machine.display.len()];
+        machine.stack[1] = 0x001;
+        machine.stack_pointer = 1;
+        machine.program_counter = 0x000;
 
+        machine.execute_instruction(instruction);
+
+        assert_eq!(machine.stack_pointer, 0);
+        assert_eq!(machine.program_counter, 0x001);
     }
 
 //    #[test]
