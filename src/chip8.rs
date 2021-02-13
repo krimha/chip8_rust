@@ -98,10 +98,28 @@ impl Machine {
                     let val = instruction.to_be_bytes()[1];
                     self.v_reg[reg] += val;
                 },
-                0x8 => { // LD, Vx, Vy
-                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                    self.v_reg[reg1] = self.v_reg[reg2];
+                0x8 => match instruction & 0x000F {
+                    0x0 => {// LD, Vx, Vy
+                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                        self.v_reg[reg1] = self.v_reg[reg2];
+                    },
+                    0x1 => { // Vx <- Vx OR Vy 
+                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                        self.v_reg[reg1] |= self.v_reg[reg2];
+                    }, 
+                    0x2 => { // Vx <- Vx AND Vy
+                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                        self.v_reg[reg1] &= self.v_reg[reg2];
+                    },
+                    0x3 => {
+                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
+                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
+                        self.v_reg[reg1] ^= self.v_reg[reg2];
+                    }
+                    _ => {}
                 },
                 _ => {}
             },
@@ -298,5 +316,59 @@ mod tests {
         m.v_reg[5] = 10;
         m.execute_instruction(0x8450);
         assert_eq!(m.v_reg[4], 10);
+    }
+
+    #[test]
+    fn test_machine_execute_or() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 0x00000001;
+        m.execute_instruction(0x8011);
+        assert_eq!(m.v_reg[0], 0x1);
+
+        m.v_reg[2] = 0b10111010;
+        m.v_reg[3] = 0b01000101;
+        m.execute_instruction(0x8231);
+        assert_eq!(m.v_reg[2], 0xFF);
+        assert_eq!(m.v_reg[3], 0b01000101);
+    }
+
+    #[test]
+    fn test_machine_execute_and() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 0x00000001;
+        m.execute_instruction(0x8012);
+        assert_eq!(m.v_reg[0], 0x0);
+
+        m.v_reg[2] = 0b10111010;
+        m.v_reg[3] = 0b01000101;
+        m.execute_instruction(0x8232);
+        assert_eq!(m.v_reg[2], 0x0);
+        assert_eq!(m.v_reg[3], 0b01000101);
+
+        m.v_reg[4] = 0b10111010;
+        m.v_reg[5] = 0b01011101;
+        m.execute_instruction(0x8452);
+        assert_eq!(m.v_reg[4], 0b00011000);
+        assert_eq!(m.v_reg[5], 0b01011101);
+    }
+    //Warning: Tests have been copied form the above test
+    #[test]
+    fn test_machine_execute_xor() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 0x00000001;
+        m.execute_instruction(0x8013);
+        assert_eq!(m.v_reg[0], 0x1);
+
+        m.v_reg[2] = 0b10111010;
+        m.v_reg[3] = 0b01000101;
+        m.execute_instruction(0x8233);
+        assert_eq!(m.v_reg[2], 0xFF);
+        assert_eq!(m.v_reg[3], 0b01000101);
+
+        m.v_reg[4] = 0b10111010;
+        m.v_reg[5] = 0b01011101;
+        m.execute_instruction(0x8453);
+        assert_eq!(m.v_reg[4], 0b11100111);
+        assert_eq!(m.v_reg[5], 0b01011101);
     }
 }
