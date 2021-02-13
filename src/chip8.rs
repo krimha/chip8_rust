@@ -4,6 +4,8 @@
 
 
 // CHIP-8 Machine state
+//#[derive(Clone,Copy)]
+#[derive(PartialEq,Eq,Debug,Clone,Copy)]
 pub struct Machine {
     memory: [u8; 0x100],  // Main memory (4k bytes)
     v_reg: [u8; 16],      // Vx -registers (0...F)
@@ -12,8 +14,10 @@ pub struct Machine {
     stack_pointer: u8,    // Stack pointer. Points to top of stack
 
     stack: [u16; 16],
+    keyboard: [bool; 16],   // Keys 0x0 - 0xF
+    display: [u64; 32],             // 64x32 display. One element correcponds to one row.
 
-    font_locations: [u16; 16], // Addresses to the font sprites. Same type as i_reg, as they are mem adresses
+    font: [u8; 16*5],       // Font sprites
 
     delay_timer_register: u8,
     sound_timer_register: u8,
@@ -23,6 +27,9 @@ pub struct Machine {
 
 
 impl Machine {
+    // TODO: Write font sprites into correct memory locations
+    
+
     // TODO: Derive/Implement Default instead?
     pub fn new() -> Machine {
         Machine {
@@ -31,12 +38,26 @@ impl Machine {
             i_reg: 0,
             program_counter: 0x200,
             stack_pointer: 0,
+            display: [0; 32],
+            keyboard: [false; 16],
             stack: [0; 16],
-            font_locations:[0x000, 0x005, 0x00a, 0x00f, 0x014, 0x019, 0x01e, 0x023, 0x028, 0x02d, 0x032, 0x037, 0x03c, 0x041, 0x046, 0x04b],
+            font : [0; 5*16],
             delay_timer_register: 0,
             sound_timer_register: 0,
         }
     }
+
+    pub fn execute_instruction(&mut self, instruction: u16) {
+        
+        match instruction {
+            0x00E0 =>  // CLS - Clear screen
+                for val in self.display.iter_mut() { *val = 0; }
+
+            _ => {}
+        }
+    }
+
+
 }
 
 #[cfg(test)]
@@ -63,9 +84,52 @@ mod tests {
 
         assert_eq!(machine.delay_timer_register, 0);
         assert_eq!(machine.sound_timer_register, 0);
-
-        for (i, val) in machine.font_locations.iter().enumerate() {
-            assert_eq!(*val, (i as u16)*5);
-        }
     }
+
+
+    #[test]
+    fn test_machine_execute_sys() {
+        // SYSY instructions should be ignored
+        let instruction: u16 = 0x0ABC;
+        let mut machine = Machine::new();
+        machine.display[0] = 1;
+        machine.memory[0] = 1;
+        
+        let machine_backup = machine.clone();
+        machine.execute_instruction(instruction);
+        assert_eq!(machine, machine_backup);
+    }
+
+    #[test]
+    fn test_machine_execute_cls() {
+        let instruction: u16 = 0x00E0;
+        let mut machine = Machine::new();
+        machine.display.fill(1 << 31);
+        machine.execute_instruction(instruction);
+
+        assert_eq!(machine.display, [0;32]);
+
+
+        //machine.display = [1: u64; machine.display.len()];
+
+    }
+
+//    #[test]
+//    fn test_machine_execute() {
+//        let identity = | m: &mut Machine | {};
+//
+//        let instructions = [
+//            (0x0000 as u16, identity, | m: &Machine| -> bool { return true; }), // 0x0nnn instuction is ignored
+//            ];
+//
+//        for (instruction, process, validator) in instructions.iter() {
+//            let mut machine = Machine::new();
+//            process(&mut machine);
+//            machine.execute(*instruction as u16);
+//            assert!(validator(&machine));
+//
+//        }
+//    }
+
+
 }
