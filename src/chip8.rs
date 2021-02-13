@@ -65,6 +65,22 @@ impl Machine {
                     self.stack_push(self.program_counter);
                     self.program_counter = instruction & 0x0FFF;
                 },
+                0x3 => {
+                    // Best way to "cast" to usize?
+                    let reg_num : usize = ((instruction & 0x0F00) >> 8).into();
+                    let val = instruction.to_be_bytes()[1];
+                    if self.v_reg[reg_num] == val {
+                        self.program_counter += 2;
+                    }
+                }
+                0x4 => {
+                    // Best way to "cast" to usize?
+                    let reg_num : usize = ((instruction & 0x0F00) >> 8).into();
+                    let val = instruction.to_be_bytes()[1];
+                    if self.v_reg[reg_num] != val {
+                        self.program_counter += 2;
+                    }
+                }
                 _ => {},
             },
         }
@@ -170,5 +186,37 @@ mod tests {
         assert_eq!(machine.stack_pointer, 1);
         assert_eq!(machine.stack_peek(), pc_value);
         assert_eq!(machine.program_counter, 0x6C2);
+    }
+
+    #[test]
+    fn test_machine_execute_se() {
+        let mut machine = Machine::new();
+        machine.execute_instruction(0x3000);
+        assert_eq!(machine.program_counter, 0x202);
+
+        machine = Machine::new();
+        machine.execute_instruction(0x3023);
+        assert_eq!(machine.program_counter, 0x200);
+
+        machine = Machine::new();
+        machine.v_reg[1] = 0x23;
+        machine.execute_instruction(0x3123);
+        assert_eq!(machine.program_counter, 0x202)
+    }
+
+    #[test]
+    fn test_machine_execute_sne() {
+        let mut machine = Machine::new();
+        machine.execute_instruction(0x4000);
+        assert_eq!(machine.program_counter, 0x200);
+
+        machine = Machine::new();
+        machine.execute_instruction(0x4023);
+        assert_eq!(machine.program_counter, 0x202);
+
+        machine = Machine::new();
+        machine.v_reg[1] = 0x23;
+        machine.execute_instruction(0x4123);
+        assert_eq!(machine.program_counter, 0x200)
     }
 }
