@@ -57,7 +57,12 @@ impl Machine {
                 self.stack_pointer -= 1;
             },
 
-            _ => {},
+            // Pattern matching based on first digit                    
+            _ => match instruction >> 12 { 
+                0x0 => {}, // SYS - Do nothing (on modern systems)
+                0x1 => self.program_counter = instruction & 0x0FFF, // JP - PC jump to address 
+                _ => {},
+            },
         }
     }
 
@@ -127,6 +132,15 @@ mod tests {
 
         assert_eq!(machine.stack_pointer, 0);
         assert_eq!(machine.program_counter, 0x001);
+    }
+
+    #[test]
+    fn test_machine_execute_jp() {
+        let instruction = 0x17AC;
+        let mut machine = Machine::new();
+        machine.execute_instruction(instruction);
+
+        assert_eq!(machine.program_counter, 0x7AC);
     }
 
 //    #[test]
