@@ -151,6 +151,11 @@ impl Machine {
 
                         self.v_reg[reg1] = val;
                         self.v_reg[0xF] = (!underflow) as u8;
+                    },
+                    0xE => {
+                        let reg:usize = ((instruction & 0x0F00) >> 8).into();
+                        self.v_reg[0xF] = self.v_reg[reg] >> 7;
+                        self.v_reg[reg] <<= 1;
                     }
                     _ => {}
                 },
@@ -477,6 +482,20 @@ mod tests {
         m.v_reg[3] = 2;
         m.execute_instruction(0x8237);
         assert_eq!(m.v_reg[2], 0xFF);
+        assert_eq!(m.v_reg[0xF], 0);
+    }
+
+    #[test]
+    fn test_machine_execute_shl() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 0x80;
+        m.execute_instruction(0x800E);
+        assert_eq!(m.v_reg[0], 0x00);
+        assert_eq!(m.v_reg[0xF], 1);
+
+        m.v_reg[1] = 0x8;
+        m.execute_instruction(0x811E);
+        assert_eq!(m.v_reg[1], 0x10);
         assert_eq!(m.v_reg[0xF], 0);
     }
 }
