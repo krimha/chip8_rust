@@ -165,7 +165,10 @@ impl Machine {
                     if self.v_reg[reg1] != self.v_reg[reg2] {
                         self.program_counter += 2;
                     }
-                }
+                },
+                0xA => { // LD i register
+                    self.i_reg = instruction & 0x0FFF;
+                },
                 _ => {}
             },
         }
@@ -517,5 +520,16 @@ mod tests {
         m = Machine::new();
         m.execute_instruction(0x9000);
         assert_eq!(m.program_counter, 0x200);
+    }
+
+    #[test]
+    fn test_machine_execute_ld_i() {
+        let mut m = Machine::new();
+        
+        m.execute_instruction(0xA456);
+        assert_eq!(m.i_reg, 0x456);
+
+        m.execute_instruction(0xAFFF);
+        assert_eq!(m.i_reg, 0xFFF);
     }
 }
