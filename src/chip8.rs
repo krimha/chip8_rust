@@ -267,10 +267,13 @@ impl Machine {
                     }
                     self.v_reg[0xF] = collision;
                 },
-                0xE => {
-                    if self.keyboard[x] {
-                        self.program_counter += 2;
-                    }
+                0xE => match kk {
+                    0x9E => {
+                        if self.keyboard[x] {
+                            self.program_counter += 2;
+                        }
+                    },
+                    _ => {},
                 },
                 _ => {}
             },
