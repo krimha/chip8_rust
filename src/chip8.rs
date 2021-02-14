@@ -1,7 +1,4 @@
-
-// TODO: Isn't keyboard supposed to be put anywhere in memory?
-// TODO: Same "problem" with display
-
+use rand::Rng;
 
 // CHIP-8 Machine state
 //#[derive(Clone,Copy)]
@@ -172,7 +169,15 @@ impl Machine {
                 0xB => { // JP + V0                                                                       
                     self.program_counter = (instruction & 0x0FFF) + (self.v_reg[0] as u16);
                 }
-                
+                // TODO: Write tests
+                0xC => { // RND Vx AND kk
+                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
+                    let kk: u8 = instruction.to_be_bytes()[1];
+                    let r: u8 = rand::thread_rng().gen();
+                    self.v_reg[reg] = r & kk;
+                }
+
+
                 _ => {}
             },
         }
