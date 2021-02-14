@@ -283,10 +283,10 @@ impl Machine {
                 0xF => match x {
                     // TODO: Write tests
                     0x07 => {
-                         
+                        self.v_reg[x] = self.delay_timer_register;
                     },
                     0x0A => {
-
+                        
                     },
                     0x15 => {
 
