@@ -45,6 +45,19 @@ impl Machine {
     }
 
     pub fn execute_instruction(&mut self, instruction: u16) {
+        /*
+        instruction is a 16 bit integer, divided in to zero or more fields, 
+        depending on the instruction. The fields range in sizes of one to three
+        bytes. The following variables extracts the possible parts, to avoid 
+        duplcate code
+        */
+        let x : usize = ((instruction & 0x0F00) >> 8).into(); // 0x0x00
+        let y : usize = ((instruction & 0x00F0) >> 4).into(); // 0x00y0
+        let valx = self.v_reg[x];
+        let valy = self.v_reg[y];
+
+        let kk = instruction.to_be_bytes()[1]; // 0x00kk
+        let nnn = instruction & 0x0FFF;       // 0x0nnn
         
         match instruction {
             0x00E0 =>  // CLS - Clear screen
@@ -57,124 +70,85 @@ impl Machine {
             // Pattern matching based on first digit                    
             _ => match instruction >> 12 { 
                 0x0 => {}, // SYS - Do nothing (on modern systems)
-                0x1 => self.program_counter = instruction & 0x0FFF, // JP - PC jump to address 
+                0x1 => self.program_counter = nnn, // JP - PC jump to address 
                 0x2 => {
                     self.stack_push(self.program_counter);
-                    self.program_counter = instruction & 0x0FFF;
+                    self.program_counter = nnn;
                 },
-                0x3 => {
-                    // Best way to "cast" to usize?
-                    let reg_num : usize = ((instruction & 0x0F00) >> 8).into();
-                    let val = instruction.to_be_bytes()[1];
-                    if self.v_reg[reg_num] == val {
+                0x3 => { // SE Vx, byte - Skip if Vx matches byte
+                    if valx == kk {
                         self.program_counter += 2;
                     }
                 },
-                0x4 => {
-                    // Best way to "cast" to usize?
-                    let reg_num : usize = ((instruction & 0x0F00) >> 8).into();
-                    let val = instruction.to_be_bytes()[1];
-                    if self.v_reg[reg_num] != val {
+                0x4 => { // SNE Vx, byte
+                    if valx != kk {
                         self.program_counter += 2;
                     }
                 },
-                0x5 => {
-                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                    if self.v_reg[reg1] == self.v_reg[reg2] {
+                0x5 => { // SE Vx, Vy
+                    if valx == valy {
                         self.program_counter += 2;
                     }
                 },
-                0x6 => {
-                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
-                    let val = instruction.to_be_bytes()[1];
-                    self.v_reg[reg] = val;
+                0x6 => { // LD Vx, byte
+                    self.v_reg[x] = kk;
                 }
                 0x7 => { // Add Vx, byte
-                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
-                    let val = instruction.to_be_bytes()[1];
-                    self.v_reg[reg] += val;
+                    self.v_reg[x] += kk;
                 },
                 0x8 => match instruction & 0x000F {
                     0x0 => {// LD, Vx, Vy
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        self.v_reg[reg1] = self.v_reg[reg2];
+                        self.v_reg[x] = valy;
                     },
                     0x1 => { // Vx <- Vx OR Vy 
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        self.v_reg[reg1] |= self.v_reg[reg2];
+                        self.v_reg[x] |= valy;
                     }, 
                     0x2 => { // Vx <- Vx AND Vy
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        self.v_reg[reg1] &= self.v_reg[reg2];
+                        self.v_reg[x] &= valy;
                     },
                     0x3 => {
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        self.v_reg[reg1] ^= self.v_reg[reg2];
+                        self.v_reg[x] ^= valy;
                     },
                     0x4 => {
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        let val1 = self.v_reg[reg1];
-                        let val2 = self.v_reg[reg2];
-                        let (val, overflow) = val1.overflowing_add(val2);
-                        self.v_reg[reg1] = val;
+                        let (val, overflow) = valx.overflowing_add(valy);
+                        self.v_reg[x] = val;
                         self.v_reg[0xF] = overflow as u8;
                     }
                     0x5 => {
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        let val1 = self.v_reg[reg1];
-                        let val2 = self.v_reg[reg2];
-                        let (val, underflow) = val1.overflowing_sub(val2);
-                        self.v_reg[reg1] = val;
+                        let (val, underflow) = valx.overflowing_sub(valy);
+                        self.v_reg[x] = val;
                         self.v_reg[0xF] = underflow as u8;
                     },
                     0x6 => {  // SHR  // TODO: Rewrite to use overflowing_shr?             
-                        let reg: usize = ((instruction & 0x0F00) >> 8).into();
-                        self.v_reg[0xF] = self.v_reg[reg] & 0x01;
-                        self.v_reg[reg] >>= 1;
+                        self.v_reg[0xF] = valx & 0x01;
+                        self.v_reg[x] >>= 1;
                     },
                     0x7 => {
-                        let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                        let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                        let val1 = self.v_reg[reg1];
-                        let val2 = self.v_reg[reg2];
-                        let (val, underflow) = val2.overflowing_sub(val1);
-
-                        self.v_reg[reg1] = val;
+                        let (val, underflow) = valy.overflowing_sub(valx);
+                        self.v_reg[x] = val;
                         self.v_reg[0xF] = (!underflow) as u8;
                     },
                     0xE => {
-                        let reg:usize = ((instruction & 0x0F00) >> 8).into();
-                        self.v_reg[0xF] = self.v_reg[reg] >> 7;
-                        self.v_reg[reg] <<= 1;
+                        self.v_reg[0xF] = self.v_reg[x] >> 7;
+                        self.v_reg[x] <<= 1;
                     }
                     _ => {}
                 },
                 0x9 => { // SNE
-                    let reg1: usize = ((instruction & 0x0F00) >> 8).into();
-                    let reg2: usize = ((instruction & 0x00F0) >> 4).into();
-                    if self.v_reg[reg1] != self.v_reg[reg2] {
+                    if valx != valy {
                         self.program_counter += 2;
                     }
                 },
                 0xA => { // LD i register
-                    self.i_reg = instruction & 0x0FFF;
+                    self.i_reg = nnn;
                 },
                 0xB => { // JP + V0                                                                       
-                    self.program_counter = (instruction & 0x0FFF) + (self.v_reg[0] as u16);
+                    self.program_counter = nnn + (self.v_reg[0] as u16);
                 }
                 // TODO: Write tests
                 0xC => { // RND Vx AND kk
-                    let reg: usize = ((instruction & 0x0F00) >> 8).into();
-                    let kk: u8 = instruction.to_be_bytes()[1];
                     let r: u8 = rand::thread_rng().gen();
-                    self.v_reg[reg] = r & kk;
+                    self.v_reg[x] = r & kk;
                 }
 
 
