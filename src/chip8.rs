@@ -266,7 +266,12 @@ impl Machine {
                         self.display[((i + valy) % 32) as usize] = xored_result;
                     }
                     self.v_reg[0xF] = collision;
-                }
+                },
+                0xE => {
+                    if self.keyboard[x] {
+                        self.program_counter += 2;
+                    }
+                },
                 _ => {}
             },
         }
@@ -748,6 +753,22 @@ mod tests {
         assert_eq!(m.display[3], 0x9000000000000000);
         assert_eq!(m.display[4], 0xF000000000000000);
         assert_eq!(m.v_reg[0xF], 1);
+    }
 
+    #[test]
+    fn test_machine_execute_skp() {
+        let mut m = Machine::new();
+        m.keyboard[0x0] = true;
+        m.execute_instruction(0xE09E);
+        assert_eq!(m.program_counter, 0x202);
+
+        let mut m = Machine::new();
+        m.execute_instruction(0xE09E);
+        assert_eq!(m.program_counter, 0x200);
+
+        let mut m = Machine::new();
+        m.keyboard[0x1] = true;
+        m.execute_instruction(0xE19E);
+        assert_eq!(m.program_counter, 0x202);
     }
 }
