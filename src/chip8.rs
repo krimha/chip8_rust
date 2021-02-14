@@ -251,18 +251,22 @@ impl Machine {
                     self.v_reg[x] = r & kk;
                 }
                 0xD => { // DRW Vx Vy n                       
+                    let mut collision = 0;
                     for i  in 0..n{
+                        let curr_display = self.display[((i + valy) % 32) as usize];
+
                         let mem_loc: usize = (self.i_reg + i as u16).into();
                         let mut row = (self.memory[mem_loc] as u64) << 7*8;
-                        row = row >> valx; // Shift according to x-direction
+                        row = row.rotate_right(valx as u32); 
 
-                        self.display[((i + valy) % 32) as usize] = row;
+                        // Result if we did not care about collisions
+                        let ored_result= curr_display | row;
+                        let xored_result = curr_display ^ row;
+                        collision |= (ored_result != xored_result) as u8;
+                        self.display[((i + valy) % 32) as usize] = xored_result;
                     }
+                    self.v_reg[0xF] = collision;
                 }
-
-                
-
-
                 _ => {}
             },
         }
@@ -644,6 +648,8 @@ mod tests {
         assert_eq!(m.display[2], 0x9000000000000000);
         assert_eq!(m.display[3], 0x9000000000000000);
         assert_eq!(m.display[4], 0xF000000000000000);
+        assert_eq!(m.display[0xF], 0);
+        assert_eq!(m.v_reg[0xF], 0);
 
         // Test different sprite
         let mut m = Machine::new();
@@ -679,6 +685,7 @@ mod tests {
         assert_eq!(m.display[3], 0x1000000000000000);
         assert_eq!(m.display[4], 0x1000000000000000);
         assert_eq!(m.display[5], 0x3800000000000000);
+        assert_eq!(m.v_reg[0xF], 0);
 
         // Overflow in y-direction
         let mut m = Machine::new();
@@ -690,6 +697,7 @@ mod tests {
         assert_eq!(m.display[2], 0x2000000000000000);
         assert_eq!(m.display[3], 0x2000000000000000);
         assert_eq!(m.display[4], 0x7000000000000000);
+        assert_eq!(m.v_reg[0xF], 0);
 
         let mut m = Machine::new();
         m.v_reg[0] = 0;
@@ -701,5 +709,45 @@ mod tests {
         assert_eq!(m.display[31], 0x2000000000000000);
         assert_eq!(m.display[0], 0x2000000000000000);
         assert_eq!(m.display[1], 0x7000000000000000);
+        assert_eq!(m.v_reg[0xF], 0);
+
+        // Wrapping in horizontal direction
+        let mut m = Machine::new();
+        m.v_reg[0] = 63;
+        m.v_reg[1] = 0;
+        m.i_reg = m.font[0];
+        m.execute_instruction(0xD015);
+        assert_eq!(m.display[0], 0xE000000000000001);
+        assert_eq!(m.display[1], 0x2000000000000001);
+        assert_eq!(m.display[2], 0x2000000000000001);
+        assert_eq!(m.display[3], 0x2000000000000001);
+        assert_eq!(m.display[4], 0xE000000000000001);
+        assert_eq!(m.v_reg[0xF], 0);
+
+        // Test that n is used. (Last row should be unchanged)
+        let mut m = Machine::new();
+        m.i_reg = m.font[0];
+        m.v_reg[0] = 0;
+        m.execute_instruction(0xD004);
+        assert_eq!(m.display[0], 0xF000000000000000);
+        assert_eq!(m.display[1], 0x9000000000000000);
+        assert_eq!(m.display[2], 0x9000000000000000);
+        assert_eq!(m.display[3], 0x9000000000000000);
+        assert_eq!(m.display[4], 0x0000000000000000);
+        assert_eq!(m.v_reg[0xF], 0);
+
+        // Test collision
+        let mut m = Machine::new();
+        m.i_reg = m.font[0];
+        m.v_reg[0] = 0;
+        m.display[0] = 0x8000000000000000;
+        m.execute_instruction(0xD005);
+        assert_eq!(m.display[0], 0x7000000000000000);
+        assert_eq!(m.display[1], 0x9000000000000000);
+        assert_eq!(m.display[2], 0x9000000000000000);
+        assert_eq!(m.display[3], 0x9000000000000000);
+        assert_eq!(m.display[4], 0xF000000000000000);
+        assert_eq!(m.v_reg[0xF], 1);
+
     }
 }
