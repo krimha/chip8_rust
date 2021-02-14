@@ -273,6 +273,42 @@ impl Machine {
                             self.program_counter += 2;
                         }
                     },
+                    0xA1 => {
+                        if !self.keyboard[x] {
+                            self.program_counter += 2;
+                        }
+                    },
+                    _ => {},
+                },
+                0xF => match x {
+                    // TODO: Write tests
+                    0x07 => {
+                         
+                    },
+                    0x0A => {
+
+                    },
+                    0x15 => {
+
+                    },
+                    0x18 => {
+
+                    },
+                    0x1E => {
+
+                    },
+                    0x29 => {
+
+                    },
+                    0x33 => {
+
+                    },
+                    0x55 => {
+
+                    },
+                    0x65 => {
+
+                    },
                     _ => {},
                 },
                 _ => {}
@@ -773,5 +809,22 @@ mod tests {
         m.keyboard[0x1] = true;
         m.execute_instruction(0xE19E);
         assert_eq!(m.program_counter, 0x202);
+    }
+
+    #[test]
+    fn test_machine_execute_skpn() {
+        let mut m = Machine::new();
+        m.keyboard[0x0] = true;
+        m.execute_instruction(0xE0A1);
+        assert_eq!(m.program_counter, 0x200);
+
+        let mut m = Machine::new();
+        m.execute_instruction(0xE0A1);
+        assert_eq!(m.program_counter, 0x202);
+
+        let mut m = Machine::new();
+        m.keyboard[0x1] = true;
+        m.execute_instruction(0xE1A1);
+        assert_eq!(m.program_counter, 0x200);
     }
 }
