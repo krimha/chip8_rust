@@ -157,6 +157,7 @@ impl Machine {
 
         let kk = instruction.to_be_bytes()[1]; // 0x00kk
         let nnn = instruction & 0x0FFF;       // 0x0nnn
+        let n = instruction & 0x000F;         // 0x000n
         
         match instruction {
             0x00E0 =>  // CLS - Clear screen
@@ -249,6 +250,16 @@ impl Machine {
                     let r: u8 = rand::thread_rng().gen();
                     self.v_reg[x] = r & kk;
                 }
+                0xD => { // DRW Vx Vy n                       
+                    for i  in 0..n{
+                        let mem_loc: usize = (self.i_reg + i).into();
+                        let mut row = (self.memory[mem_loc] as u64) << 7*8;
+                        row = row >> x; // Shift according to x-direction
+                        self.display[i as usize + y] = row;
+                    }
+                }
+
+                
 
 
                 _ => {}
@@ -264,10 +275,6 @@ impl Machine {
         self.stack_pointer += 1;
         self.stack[self.stack_pointer] = val;   
     }
-
-
-
-
 }
 
 #[cfg(test)]
@@ -623,6 +630,58 @@ mod tests {
         m.v_reg[0] = 1;
         m.execute_instruction(0xB211);
         assert_eq!(m.program_counter, 0x212);
+    }
 
+    #[test]
+    fn test_machine_execute_drw() {
+        let mut m = Machine::new();
+        m.i_reg = m.font[0];
+        m.execute_instruction(0xD005);
+        assert_eq!(m.display[0], 0xF000000000000000);
+        assert_eq!(m.display[1], 0x9000000000000000);
+        assert_eq!(m.display[2], 0x9000000000000000);
+        assert_eq!(m.display[3], 0x9000000000000000);
+        assert_eq!(m.display[4], 0xF000000000000000);
+
+        // Test different sprite
+        let mut m = Machine::new();
+        m.i_reg = m.font[1];
+        m.execute_instruction(0xD005);
+        assert_eq!(m.display[0], 0x2000000000000000);
+        assert_eq!(m.display[1], 0x6000000000000000);
+        assert_eq!(m.display[2], 0x2000000000000000);
+        assert_eq!(m.display[3], 0x2000000000000000);
+        assert_eq!(m.display[4], 0x7000000000000000);
+        
+        // Display sprite at (1, 0);
+        let mut m = Machine::new();
+        m.i_reg = m.font[1];
+        m.execute_instruction(0xD105);
+        assert_eq!(m.display[0], 0x1000000000000000);
+        assert_eq!(m.display[1], 0x3000000000000000);
+        assert_eq!(m.display[2], 0x1000000000000000);
+        assert_eq!(m.display[3], 0x1000000000000000);
+        assert_eq!(m.display[4], 0x3800000000000000);
+        
+        // Display sprite at (1, 1);
+        let mut m = Machine::new();
+        m.i_reg = m.font[1];
+        m.execute_instruction(0xD115);
+        assert_eq!(m.display[0], 0x0);
+        assert_eq!(m.display[1], 0x1000000000000000);
+        assert_eq!(m.display[2], 0x3000000000000000);
+        assert_eq!(m.display[3], 0x1000000000000000);
+        assert_eq!(m.display[4], 0x1000000000000000);
+        assert_eq!(m.display[5], 0x3800000000000000);
+
+        // Overflow in y-direction
+        let mut m = Machine::new();
+        m.i_reg = m.font[1];
+        m.execute_instruction(0xD005);
+        assert_eq!(m.display[0], 0x2000000000000000);
+        assert_eq!(m.display[1], 0x6000000000000000);
+        assert_eq!(m.display[2], 0x2000000000000000);
+        assert_eq!(m.display[3], 0x2000000000000000);
+        assert_eq!(m.display[4], 0x7000000000000000);
     }
 }
