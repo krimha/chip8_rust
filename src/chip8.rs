@@ -14,7 +14,7 @@ pub struct Machine {
     keyboard: [bool; 16],   // Keys 0x0 - 0xF
     display: [u64; 32],             // 64x32 display. One element correcponds to one row.
 
-    font: [u8; 16*5],       // Font sprites
+    font: [u16; 16],       // memory addresses to sprites
 
     delay_timer_register: u8,
     sound_timer_register: u8,
@@ -29,7 +29,7 @@ impl Machine {
 
     // TODO: Derive/Implement Default instead?
     pub fn new() -> Machine {
-        Machine {
+        let mut m = Machine {
             memory: [0; 0x100],
             v_reg: [0; 16],
             i_reg: 0,
@@ -38,10 +38,109 @@ impl Machine {
             display: [0; 32],
             keyboard: [false; 16],
             stack: [0; 16],
-            font : [0; 5*16],
+            font : [ 0x000, 0x005, 0x00a, 0x00f, 0x014, 0x019, 0x01e, 0x023,
+                0x028, 0x02d, 0x032, 0x037, 0x03c, 0x041, 0x046, 0x04b, ],
             delay_timer_register: 0,
             sound_timer_register: 0,
-        }
+        };
+
+        m.memory[0x000] = 0b11110000;
+        m.memory[0x001] = 0b10010000;
+        m.memory[0x002] = 0b10010000;
+        m.memory[0x003] = 0b10010000;
+        m.memory[0x004] = 0b11110000;
+
+        m.memory[0x005] = 0b00100000;
+        m.memory[0x006] = 0b01100000;
+        m.memory[0x007] = 0b00100000;
+        m.memory[0x008] = 0b00100000;
+        m.memory[0x009] = 0b01110000;
+
+        m.memory[0x00a] = 0b11110000;
+        m.memory[0x00b] = 0b00010000;
+        m.memory[0x00c] = 0b11110000;
+        m.memory[0x00d] = 0b10000000;
+        m.memory[0x00e] = 0b11110000;
+
+        m.memory[0x00f] = 0b11110000;
+        m.memory[0x010] = 0b00010000;
+        m.memory[0x011] = 0b11110000;
+        m.memory[0x012] = 0b00010000;
+        m.memory[0x013] = 0b11110000;
+
+        m.memory[0x014] = 0b10010000;
+        m.memory[0x015] = 0b10010000;
+        m.memory[0x016] = 0b11110000;
+        m.memory[0x017] = 0b00010000;
+        m.memory[0x018] = 0b00010000;
+
+        m.memory[0x019] = 0b11110000;
+        m.memory[0x01a] = 0b10000000;
+        m.memory[0x01b] = 0b11110000;
+        m.memory[0x01c] = 0b00010000;
+        m.memory[0x01d] = 0b11110000;
+
+        m.memory[0x01e] = 0b11110000;
+        m.memory[0x01f] = 0b10000000;
+        m.memory[0x020] = 0b11110000;
+        m.memory[0x021] = 0b10010000;
+        m.memory[0x022] = 0b11110000;
+
+        m.memory[0x023] = 0b11110000;
+        m.memory[0x024] = 0b00010000;
+        m.memory[0x025] = 0b00100000;
+        m.memory[0x026] = 0b01000000;
+        m.memory[0x027] = 0b01000000;
+
+        m.memory[0x028] = 0b11110000;
+        m.memory[0x029] = 0b10010000;
+        m.memory[0x02a] = 0b11110000;
+        m.memory[0x02b] = 0b10010000;
+        m.memory[0x02c] = 0b11110000;
+
+        m.memory[0x02d] = 0b11110000;
+        m.memory[0x02e] = 0b10010000;
+        m.memory[0x02f] = 0b11110000;
+        m.memory[0x030] = 0b00010000;
+        m.memory[0x031] = 0b11110000;
+
+        m.memory[0x032] = 0b11110000;
+        m.memory[0x033] = 0b10010000;
+        m.memory[0x034] = 0b11110000;
+        m.memory[0x035] = 0b10010000;
+        m.memory[0x036] = 0b10010000;
+
+        m.memory[0x037] = 0b11100000;
+        m.memory[0x038] = 0b10010000;
+        m.memory[0x039] = 0b11100000;
+        m.memory[0x03a] = 0b10010000;
+        m.memory[0x03b] = 0b11100000;
+
+        m.memory[0x03c] = 0b11110000;
+        m.memory[0x03d] = 0b10000000;
+        m.memory[0x03e] = 0b10000000;
+        m.memory[0x03f] = 0b10000000;
+        m.memory[0x040] = 0b11110000;
+
+        m.memory[0x041] = 0b11100000;
+        m.memory[0x042] = 0b1001000;
+        m.memory[0x043] = 0b10010000;
+        m.memory[0x044] = 0b10010000;
+        m.memory[0x045] = 0b11100000;
+
+        m.memory[0x046] = 0b11110000;
+        m.memory[0x047] = 0b10000000;
+        m.memory[0x048] = 0b11110000;
+        m.memory[0x049] = 0b10000000;
+        m.memory[0x04a] = 0b11110000;
+
+        m.memory[0x04b] = 0b11110000;
+        m.memory[0x04c] = 0b10000000;
+        m.memory[0x04d] = 0b11110000;
+        m.memory[0x04e] = 0b10000000;
+        m.memory[0x04f] = 0b10000000;
+
+        return m;
     }
 
     pub fn execute_instruction(&mut self, instruction: u16) {
@@ -178,9 +277,10 @@ mod tests {
     #[test]
     fn test_machine_new() {
         let machine = Machine::new();
-        for val in machine.memory.iter() {
-            assert!(*val == 0);
-        }
+        // Temporarily removed due to hardcoded sprites in memory.
+        //for val in machine.memory.iter() {
+        //    assert!(*val == 0);
+        //}
 
         for val in machine.v_reg.iter() {
             assert!(*val == 0);
