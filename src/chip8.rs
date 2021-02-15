@@ -19,6 +19,7 @@ pub struct Machine {
     delay_timer_register: u8,
     sound_timer_register: u8,
 
+    keypad_waiting: bool,
     // TODO: Timers
 }
 
@@ -42,6 +43,8 @@ impl Machine {
                 0x028, 0x02d, 0x032, 0x037, 0x03c, 0x041, 0x046, 0x04b, ],
             delay_timer_register: 0,
             sound_timer_register: 0,
+
+            keypad_waiting: false,
         };
 
         m.memory[0x000] = 0b11110000;
@@ -159,6 +162,8 @@ impl Machine {
         let nnn = instruction & 0x0FFF;       // 0x0nnn
         let n: u8 = (instruction & 0x000F).to_be_bytes()[1];        // 0x000n
         
+        // TODO: match supports ranges, (e.g. 0x1000...1023) which can
+        // greatly simplify this nested structure.
         match instruction {
             0x00E0 =>  // CLS - Clear screen
                 for val in self.display.iter_mut() { *val = 0; },
@@ -280,25 +285,26 @@ impl Machine {
                     },
                     _ => {},
                 },
-                0xF => match x {
+                0xF => match kk {
                     // TODO: Write tests
                     0x07 => {
                         self.v_reg[x] = self.delay_timer_register;
                     },
+                    // TODO: Write tests?
                     0x0A => {
-                        
+                        self.keypad_waiting = true;
                     },
                     0x15 => {
-
+                        self.delay_timer_register = self.v_reg[x];
                     },
-                    0x18 => {
-
+                    0x18 => { // TODO: WRite tests
+                        self.sound_timer_register = self.v_reg[x];
                     },
-                    0x1E => {
-
+                    0x1E => { // TODO Write tests
+                        self.i_reg += self.v_reg[x] as u16;
                     },
-                    0x29 => {
-
+                    0x29 => { // TODO Write tests
+                        self.i_reg = self.font[self.v_reg[x] as usize];
                     },
                     0x33 => {
 
@@ -827,4 +833,13 @@ mod tests {
         m.execute_instruction(0xE1A1);
         assert_eq!(m.program_counter, 0x200);
     }
+
+    #[test]
+    fn test_machine_execute_set_dt() {
+        let mut m = Machine::new();
+        m.v_reg[1] = 0x3;
+        m.execute_instruction(0xF115);
+        assert_eq!(m.delay_timer_register, m.v_reg[1]);
+    }
+
 }
