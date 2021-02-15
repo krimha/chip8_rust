@@ -306,8 +306,14 @@ impl Machine {
                     0x29 => { // TODO Write tests
                         self.i_reg = self.font[self.v_reg[x] as usize];
                     },
-                    0x33 => {
-
+                    0x33 => { // BCD representation
+                        let i = self.i_reg as usize;
+                        let mut n = self.v_reg[x];
+                        self.memory[i] = n / 100;
+                        n -= self.memory[i] * 100;
+                        self.memory[i+1] = n / 10;
+                        n -= self.memory[i+1] * 10;
+                        self.memory[i+2] = n;
                     },
                     0x55 => {
 
@@ -840,6 +846,30 @@ mod tests {
         m.v_reg[1] = 0x3;
         m.execute_instruction(0xF115);
         assert_eq!(m.delay_timer_register, m.v_reg[1]);
+    }
+
+    #[test]
+    fn test_machine_execute_lb_B() {
+        let mut m = Machine::new();
+        m.v_reg[0] = 0x1;
+        m.execute_instruction(0xF033);
+        assert_eq!(m.memory[m.i_reg as usize],     0);
+        assert_eq!(m.memory[m.i_reg as usize + 1], 0);
+        assert_eq!(m.memory[m.i_reg as usize + 2], 1);
+
+        let mut m = Machine::new();
+        m.v_reg[1] = 12;
+        m.execute_instruction(0xF133);
+        assert_eq!(m.memory[m.i_reg as usize],     0);
+        assert_eq!(m.memory[m.i_reg as usize + 1], 1);
+        assert_eq!(m.memory[m.i_reg as usize + 2], 2);
+
+        let mut m = Machine::new();
+        m.v_reg[1] = 234;
+        m.execute_instruction(0xF133);
+        assert_eq!(m.memory[m.i_reg as usize],     2);
+        assert_eq!(m.memory[m.i_reg as usize + 1], 3);
+        assert_eq!(m.memory[m.i_reg as usize + 2], 4);
     }
 
 }
