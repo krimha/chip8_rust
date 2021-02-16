@@ -4,7 +4,7 @@ use rand::Rng;
 //#[derive(Clone,Copy)]
 #[derive(PartialEq,Eq,Debug,Clone,Copy)]
 pub struct Machine {
-    memory: [u8; 0x100],  // Main memory (4k bytes)
+    memory: [u8; 0x1000],  // Main memory (4k bytes)
     v_reg: [u8; 16],      // Vx -registers (0...F)
     i_reg: u16,           // I-register used for memory addresses
     program_counter: u16, // Program counter. Points to current addresss    
@@ -31,7 +31,7 @@ impl Machine {
     // TODO: Derive/Implement Default instead?
     pub fn new() -> Machine {
         let mut m = Machine {
-            memory: [0; 0x100],
+            memory: [0; 0x1000],
             v_reg: [0; 16],
             i_reg: 0,
             program_counter: 0x200,
@@ -306,20 +306,27 @@ impl Machine {
                     0x29 => { // TODO Write tests
                         self.i_reg = self.font[self.v_reg[x] as usize];
                     },
-                    0x33 => { // BCD representation
+                    // BCD representation of a number into memory
+                    0x33 => { 
                         let i = self.i_reg as usize;
-                        let mut n = self.v_reg[x];
-                        self.memory[i] = n / 100;
-                        n -= self.memory[i] * 100;
-                        self.memory[i+1] = n / 10;
-                        n -= self.memory[i+1] * 10;
-                        self.memory[i+2] = n;
+                        let mut m = self.v_reg[x];
+                        self.memory[i] = m / 100;
+                        m -= self.memory[i] * 100;
+                        self.memory[i+1] = m / 10;
+                        m -= self.memory[i+1] * 10;
+                        self.memory[i+2] = m;
                     },
+                    // Put V registers into memory
                     0x55 => {
-
+                        for i in 0..=x {
+                            self.memory[self.i_reg as usize + i] = self.v_reg[i];
+                        }
                     },
-                    0x65 => {
-
+                    // Fill v_registers from memory staring from I
+                    0x65 => { 
+                        for i in 0..=x {
+                            self.v_reg[i] = self.memory[self.i_reg as usize + i];
+                        }
                     },
                     _ => {},
                 },
@@ -870,6 +877,57 @@ mod tests {
         assert_eq!(m.memory[m.i_reg as usize],     2);
         assert_eq!(m.memory[m.i_reg as usize + 1], 3);
         assert_eq!(m.memory[m.i_reg as usize + 2], 4);
+    }
+
+    #[test]
+    fn test_machine_execute_ld_cont_i() {
+        let mut m = Machine::new();
+        m.i_reg = 0x202;
+        m.v_reg[0x0] = 1;
+        m.v_reg[0x1] = 2;
+        m.v_reg[0x2] = 3;
+        m.v_reg[0x3] = 4;
+        m.v_reg[0x4] = 5;
+        m.v_reg[0x5] = 6;
+        m.v_reg[0x6] = 7;
+
+        m.execute_instruction(0xF455);
+        assert_eq!(m.memory[0x202], 1);
+        assert_eq!(m.memory[0x203], 2);
+        assert_eq!(m.memory[0x204], 3);
+        assert_eq!(m.memory[0x205], 4);
+        assert_eq!(m.memory[0x206], 5);
+        assert_eq!(m.memory[0x207], 0);
+
+        m.i_reg = 0x300;
+        m.execute_instruction(0xF655);
+        assert_eq!(m.memory[0x300], 1);
+        assert_eq!(m.memory[0x301], 2);
+        assert_eq!(m.memory[0x302], 3);
+        assert_eq!(m.memory[0x303], 4);
+        assert_eq!(m.memory[0x304], 5);
+        assert_eq!(m.memory[0x305], 6);
+        assert_eq!(m.memory[0x306], 7);
+    }
+
+    #[test]
+    fn test_machine_execute_ld_vx() {
+        let mut m = Machine::new();
+        m.i_reg = 0x202;
+        let i = m.i_reg as usize;
+        m.memory[i] = 1;
+        m.memory[i + 1] = 2;
+        m.memory[i + 2] = 3;
+        m.memory[i + 3] = 4;
+        m.memory[i + 4] = 5;
+
+        m.execute_instruction(0xF565);
+        assert_eq!(m.v_reg[0], 1);
+        assert_eq!(m.v_reg[1], 2);
+        assert_eq!(m.v_reg[2], 3);
+        assert_eq!(m.v_reg[3], 4);
+        assert_eq!(m.v_reg[4], 5);
+        assert_eq!(m.v_reg[5], 0);
     }
 
 }
