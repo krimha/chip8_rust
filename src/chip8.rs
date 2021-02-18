@@ -265,7 +265,8 @@ impl Machine {
                 }
                 0x7 => {
                     // Add Vx, byte
-                    self.v_reg[x] += kk;
+                    let (res, _) = self.v_reg[x].overflowing_add(kk);
+                    self.v_reg[x] = res;
                 }
                 0x8 => match instruction & 0x000F {
                     0x0 => {
@@ -291,7 +292,7 @@ impl Machine {
                     0x5 => {
                         let (val, underflow) = valx.overflowing_sub(valy);
                         self.v_reg[x] = val;
-                        self.v_reg[0xF] = underflow as u8;
+                        self.v_reg[0xF] = (!underflow) as u8;
                     }
                     0x6 => {
                         // SHR  // TODO: Rewrite to use overflowing_shr?

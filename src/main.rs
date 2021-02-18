@@ -18,7 +18,8 @@ const HEIGHT: u32 = 32 * SCALE;
 pub fn main() {
     let mut machine = chip8::Machine::new();
     // let mut file = std::fs::File::open("IBM_Logo.ch8").unwrap();
-    let mut file = std::fs::File::open("test_opcode.ch8").unwrap();
+    // let mut file = std::fs::File::open("test_opcode.ch8").unwrap();
+    let mut file = std::fs::File::open("BC_test.ch8").unwrap();
 
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
@@ -64,7 +65,7 @@ pub fn main() {
             }
         }
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 5));
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60 ));
     }
 
 
