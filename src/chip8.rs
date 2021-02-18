@@ -1,32 +1,36 @@
 use rand::Rng;
 
+extern crate sdl2;
+use sdl2::render::Canvas;
+use sdl2::pixels::Color;
+use sdl2::video::Window;
+use sdl2::rect::Rect;
+
 // CHIP-8 Machine state
 //#[derive(Clone,Copy)]
-#[derive(PartialEq,Eq,Debug,Clone,Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Machine {
-    memory: [u8; 0x1000],  // Main memory (4k bytes)
-    v_reg: [u8; 16],      // Vx -registers (0...F)
-    i_reg: u16,           // I-register used for memory addresses
-    program_counter: u16, // Program counter. Points to current addresss    
-    stack_pointer: usize,    // Stack pointer. Points to top of stack. Set to usize to allow it to index. *Can be* u8 according to docs
+    pub memory: [u8; 0x1000], // Main memory (4k bytes)
+    pub v_reg: [u8; 16],      // Vx -registers (0...F)
+    pub i_reg: u16,           // I-register used for memory addresses
+    pub program_counter: u16, // Program counter. Points to current addresss
+    pub stack_pointer: usize, // Stack pointer. Points to top of stack. Set to usize to allow it to index. *Can be* u8 according to docs
 
-    stack: [u16; 16],
-    keyboard: [bool; 16],   // Keys 0x0 - 0xF
-    display: [u64; 32],             // 64x32 display. One element correcponds to one row.
+    pub stack: [u16; 16],
+    pub keyboard: [bool; 16], // Keys 0x0 - 0xF
+    pub display: [u64; 32],   // 64x32 display. One element correcponds to one row.
 
-    font: [u16; 16],       // memory addresses to sprites
+    pub font: [u16; 16], // memory addresses to sprites
 
-    delay_timer_register: u8,
-    sound_timer_register: u8,
+    pub delay_timer_register: u8,
+    pub sound_timer_register: u8,
 
-    keypad_waiting: bool,
+    pub keypad_waiting: bool,
     // TODO: Timers
 }
 
-
 impl Machine {
     // TODO: Write font sprites into correct memory locations
-    
 
     // TODO: Derive/Implement Default instead?
     pub fn new() -> Machine {
@@ -39,8 +43,10 @@ impl Machine {
             display: [0; 32],
             keyboard: [false; 16],
             stack: [0; 16],
-            font : [ 0x000, 0x005, 0x00a, 0x00f, 0x014, 0x019, 0x01e, 0x023,
-                0x028, 0x02d, 0x032, 0x037, 0x03c, 0x041, 0x046, 0x04b, ],
+            font: [
+                0x000, 0x005, 0x00a, 0x00f, 0x014, 0x019, 0x01e, 0x023, 0x028, 0x02d, 0x032, 0x037,
+                0x03c, 0x041, 0x046, 0x04b,
+            ],
             delay_timer_register: 0,
             sound_timer_register: 0,
 
@@ -126,7 +132,7 @@ impl Machine {
         m.memory[0x040] = 0b11110000;
 
         m.memory[0x041] = 0b11100000;
-        m.memory[0x042] = 0b1001000;
+        m.memory[0x042] = 0b10010000;
         m.memory[0x043] = 0b10010000;
         m.memory[0x044] = 0b10010000;
         m.memory[0x045] = 0b11100000;
@@ -146,74 +152,137 @@ impl Machine {
         return m;
     }
 
+    fn stack_peek(&self) -> u16 {
+        self.stack[self.stack_pointer]
+    }
+
+    fn stack_push(&mut self, val: u16) {
+        self.stack_pointer += 1;
+        self.stack[self.stack_pointer] = val;
+    }
+
+    pub fn render_display(&self, canvas: &mut Canvas<Window>, scale: u32) {
+        canvas.clear();
+
+        canvas.set_draw_color(Color::WHITE);
+
+        for row in 0..32 {
+            for column in 0..64 {
+                if (self.display[row] & (1 << (63 - column))) >> (63 - column) == 1 {
+                    canvas.fill_rect(
+                        Rect::new(column*scale as i32, row as i32 *scale as i32, scale, scale)
+                    ).unwrap();
+                }
+            }
+        }
+    }
+
+    pub fn draw_display(&self) {
+        for _ in 0..64 {
+            print!("-");
+        }
+        println!();
+
+        for row in 0..32 {
+            for column in 0..64 {
+                if (self.display[row] & (1 << (63 - column))) >> (63 - column) == 1 {
+                    print!("X");
+                }
+                else {
+                    print!(" ");
+                }
+            }
+            println!();
+        }
+
+        for _ in 0..64 {
+            print!("-");
+        }
+        println!();
+    }
+
     pub fn execute_instruction(&mut self, instruction: u16) {
         /*
-        instruction is a 16 bit integer, divided in to zero or more fields, 
+        instruction is a 16 bit integer, divided in to zero or more fields,
         depending on the instruction. The fields range in sizes of one to three
-        bytes. The following variables extracts the possible parts, to avoid 
+        bytes. The following variables extracts the possible parts, to avoid
         duplcate code
         */
-        let x : usize = ((instruction & 0x0F00) >> 8).into(); // 0x0x00
-        let y : usize = ((instruction & 0x00F0) >> 4).into(); // 0x00y0
+        let x: usize = ((instruction & 0x0F00) >> 8).into(); // 0x0x00
+        let y: usize = ((instruction & 0x00F0) >> 4).into(); // 0x00y0
         let valx = self.v_reg[x];
         let valy = self.v_reg[y];
 
         let kk = instruction.to_be_bytes()[1]; // 0x00kk
-        let nnn = instruction & 0x0FFF;       // 0x0nnn
-        let n: u8 = (instruction & 0x000F).to_be_bytes()[1];        // 0x000n
-        
+        let nnn = instruction & 0x0FFF; // 0x0nnn
+        let n: u8 = (instruction & 0x000F).to_be_bytes()[1]; // 0x000n
+
         // TODO: match supports ranges, (e.g. 0x1000...1023) which can
         // greatly simplify this nested structure.
         match instruction {
-            0x00E0 =>  // CLS - Clear screen
-                for val in self.display.iter_mut() { *val = 0; },
-            0x00EE => { // RET - Return from subroutine             
+            0x00E0 =>
+            // CLS - Clear screen
+            {
+                for val in self.display.iter_mut() {
+                    *val = 0;
+                }
+            }
+            0x00EE => {
+                // RET - Return from subroutine
                 self.program_counter = self.stack[self.stack_pointer];
                 self.stack_pointer -= 1;
-            },
+            }
 
-            // Pattern matching based on first digit                    
-            _ => match instruction >> 12 { 
-                0x0 => {}, // SYS - Do nothing (on modern systems)
-                0x1 => self.program_counter = nnn, // JP - PC jump to address 
+            // Pattern matching based on first digit
+            _ => match instruction >> 12 {
+                0x0 => {  },                          // SYS - Do nothing (on modern systems)
+                0x1 => self.program_counter = nnn - 2, // JP - PC jump to address
                 0x2 => {
                     self.stack_push(self.program_counter);
-                    self.program_counter = nnn;
-                },
-                0x3 => { // SE Vx, byte - Skip if Vx matches byte
+                    self.program_counter = nnn - 2;
+                }
+                0x3 => {
+                    // SE Vx, byte - Skip if Vx matches byte
                     if valx == kk {
                         self.program_counter += 2;
                     }
-                },
-                0x4 => { // SNE Vx, byte
+                }
+                0x4 => {
+                    // SNE Vx, byte
                     if valx != kk {
                         self.program_counter += 2;
                     }
-                },
-                0x5 => { // SE Vx, Vy
+                }
+                0x5 => {
+                    // SE Vx, Vy
                     if valx == valy {
                         self.program_counter += 2;
                     }
-                },
-                0x6 => { // LD Vx, byte
+                }
+                0x6 => {
+                    // LD Vx, byte
                     self.v_reg[x] = kk;
                 }
-                0x7 => { // Add Vx, byte
+                0x7 => {
+                    // Add Vx, byte
                     self.v_reg[x] += kk;
-                },
+                }
                 0x8 => match instruction & 0x000F {
-                    0x0 => {// LD, Vx, Vy
+                    0x0 => {
+                        // LD, Vx, Vy
                         self.v_reg[x] = valy;
-                    },
-                    0x1 => { // Vx <- Vx OR Vy 
+                    }
+                    0x1 => {
+                        // Vx <- Vx OR Vy
                         self.v_reg[x] |= valy;
-                    }, 
-                    0x2 => { // Vx <- Vx AND Vy
+                    }
+                    0x2 => {
+                        // Vx <- Vx AND Vy
                         self.v_reg[x] &= valy;
-                    },
+                    }
                     0x3 => {
                         self.v_reg[x] ^= valy;
-                    },
+                    }
                     0x4 => {
                         let (val, overflow) = valx.overflowing_add(valy);
                         self.v_reg[x] = val;
@@ -223,125 +292,125 @@ impl Machine {
                         let (val, underflow) = valx.overflowing_sub(valy);
                         self.v_reg[x] = val;
                         self.v_reg[0xF] = underflow as u8;
-                    },
-                    0x6 => {  // SHR  // TODO: Rewrite to use overflowing_shr?             
+                    }
+                    0x6 => {
+                        // SHR  // TODO: Rewrite to use overflowing_shr?
                         self.v_reg[0xF] = valx & 0x01;
                         self.v_reg[x] >>= 1;
-                    },
+                    }
                     0x7 => {
                         let (val, underflow) = valy.overflowing_sub(valx);
                         self.v_reg[x] = val;
                         self.v_reg[0xF] = (!underflow) as u8;
-                    },
+                    }
                     0xE => {
                         self.v_reg[0xF] = self.v_reg[x] >> 7;
                         self.v_reg[x] <<= 1;
                     }
                     _ => {}
                 },
-                0x9 => { // SNE
+                0x9 => {
+                    // SNE
                     if valx != valy {
                         self.program_counter += 2;
                     }
-                },
-                0xA => { // LD i register
+                }
+                0xA => {
+                    // LD i register
                     self.i_reg = nnn;
-                },
-                0xB => { // JP + V0                                                                       
-                    self.program_counter = nnn + (self.v_reg[0] as u16);
+                }
+                0xB => {
+                    // JP + V0
+                    self.program_counter = nnn + (self.v_reg[0] as u16) - 2;
                 }
                 // TODO: Write tests
-                0xC => { // RND Vx AND kk
+                0xC => {
+                    // RND Vx AND kk
                     let r: u8 = rand::thread_rng().gen();
                     self.v_reg[x] = r & kk;
                 }
-                0xD => { // DRW Vx Vy n                       
+                0xD => {
+                    // DRW Vx Vy n
                     let mut collision = 0;
-                    for i  in 0..n{
+                    for i in 0..n {
                         let curr_display = self.display[((i + valy) % 32) as usize];
 
                         let mem_loc: usize = (self.i_reg + i as u16).into();
-                        let mut row = (self.memory[mem_loc] as u64) << 7*8;
-                        row = row.rotate_right(valx as u32); 
+                        let mut row = (self.memory[mem_loc] as u64) << 7 * 8;
+                        row = row.rotate_right(valx as u32);
 
                         // Result if we did not care about collisions
-                        let ored_result= curr_display | row;
+                        let ored_result = curr_display | row;
                         let xored_result = curr_display ^ row;
                         collision |= (ored_result != xored_result) as u8;
                         self.display[((i + valy) % 32) as usize] = xored_result;
                     }
                     self.v_reg[0xF] = collision;
-                },
+                }
                 0xE => match kk {
                     0x9E => {
                         if self.keyboard[x] {
                             self.program_counter += 2;
                         }
-                    },
+                    }
                     0xA1 => {
                         if !self.keyboard[x] {
                             self.program_counter += 2;
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 },
                 0xF => match kk {
                     // TODO: Write tests
                     0x07 => {
                         self.v_reg[x] = self.delay_timer_register;
-                    },
+                    }
                     // TODO: Write tests?
                     0x0A => {
                         self.keypad_waiting = true;
-                    },
+                    }
                     0x15 => {
                         self.delay_timer_register = self.v_reg[x];
-                    },
-                    0x18 => { // TODO: WRite tests
+                    }
+                    0x18 => {
+                        // TODO: WRite tests
                         self.sound_timer_register = self.v_reg[x];
-                    },
-                    0x1E => { // TODO Write tests
+                    }
+                    0x1E => {
+                        // TODO Write tests
                         self.i_reg += self.v_reg[x] as u16;
-                    },
-                    0x29 => { // TODO Write tests
+                    }
+                    0x29 => {
+                        // TODO Write tests
                         self.i_reg = self.font[self.v_reg[x] as usize];
-                    },
+                    }
                     // BCD representation of a number into memory
-                    0x33 => { 
+                    0x33 => {
                         let i = self.i_reg as usize;
                         let mut m = self.v_reg[x];
                         self.memory[i] = m / 100;
                         m -= self.memory[i] * 100;
-                        self.memory[i+1] = m / 10;
-                        m -= self.memory[i+1] * 10;
-                        self.memory[i+2] = m;
-                    },
+                        self.memory[i + 1] = m / 10;
+                        m -= self.memory[i + 1] * 10;
+                        self.memory[i + 2] = m;
+                    }
                     // Put V registers into memory
                     0x55 => {
                         for i in 0..=x {
                             self.memory[self.i_reg as usize + i] = self.v_reg[i];
                         }
-                    },
+                    }
                     // Fill v_registers from memory staring from I
-                    0x65 => { 
+                    0x65 => {
                         for i in 0..=x {
                             self.v_reg[i] = self.memory[self.i_reg as usize + i];
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 },
                 _ => {}
             },
         }
-    }
-
-    fn stack_peek(&self) -> u16 {
-        self.stack[self.stack_pointer]
-    }
-
-    fn stack_push(&mut self, val: u16) {
-        self.stack_pointer += 1;
-        self.stack[self.stack_pointer] = val;   
     }
 }
 
@@ -372,7 +441,6 @@ mod tests {
         assert_eq!(machine.sound_timer_register, 0);
     }
 
-
     #[test]
     fn test_machine_execute_sys() {
         // SYSY instructions should be ignored
@@ -380,7 +448,7 @@ mod tests {
         let mut machine = Machine::new();
         machine.display[0] = 1;
         machine.memory[0] = 1;
-        
+
         let machine_backup = machine.clone();
         machine.execute_instruction(instruction);
         assert_eq!(machine, machine_backup);
@@ -393,7 +461,7 @@ mod tests {
         machine.display.fill(1 << 31);
         machine.execute_instruction(instruction);
 
-        assert_eq!(machine.display, [0;32]);
+        assert_eq!(machine.display, [0; 32]);
     }
 
     #[test]
@@ -628,7 +696,7 @@ mod tests {
         m.v_reg[0] = 4;
         m.v_reg[1] = 5;
         m.execute_instruction(0x8016);
-        assert_eq!(m.v_reg[0], 2);            
+        assert_eq!(m.v_reg[0], 2);
         assert_eq!(m.v_reg[0xF], 0);
 
         m.execute_instruction(0x8116);
@@ -669,8 +737,8 @@ mod tests {
 
     #[test]
     fn testmachine_execute_sne() {
-        let mut m = Machine::new();        
-        
+        let mut m = Machine::new();
+
         m.v_reg[0] = 2;
         m.execute_instruction(0x9010);
         assert_eq!(m.program_counter, 0x202);
@@ -683,7 +751,7 @@ mod tests {
     #[test]
     fn test_machine_execute_ld_i() {
         let mut m = Machine::new();
-        
+
         m.execute_instruction(0xA456);
         assert_eq!(m.i_reg, 0x456);
 
@@ -724,7 +792,7 @@ mod tests {
         assert_eq!(m.display[2], 0x2000000000000000);
         assert_eq!(m.display[3], 0x2000000000000000);
         assert_eq!(m.display[4], 0x7000000000000000);
-        
+
         // Display sprite at (1, 0);
         let mut m = Machine::new();
         m.i_reg = m.font[1];
@@ -736,7 +804,7 @@ mod tests {
         assert_eq!(m.display[2], 0x1000000000000000);
         assert_eq!(m.display[3], 0x1000000000000000);
         assert_eq!(m.display[4], 0x3800000000000000);
-        
+
         // Display sprite at (1, 1);
         let mut m = Machine::new();
         m.i_reg = m.font[1];
@@ -860,21 +928,21 @@ mod tests {
         let mut m = Machine::new();
         m.v_reg[0] = 0x1;
         m.execute_instruction(0xF033);
-        assert_eq!(m.memory[m.i_reg as usize],     0);
+        assert_eq!(m.memory[m.i_reg as usize], 0);
         assert_eq!(m.memory[m.i_reg as usize + 1], 0);
         assert_eq!(m.memory[m.i_reg as usize + 2], 1);
 
         let mut m = Machine::new();
         m.v_reg[1] = 12;
         m.execute_instruction(0xF133);
-        assert_eq!(m.memory[m.i_reg as usize],     0);
+        assert_eq!(m.memory[m.i_reg as usize], 0);
         assert_eq!(m.memory[m.i_reg as usize + 1], 1);
         assert_eq!(m.memory[m.i_reg as usize + 2], 2);
 
         let mut m = Machine::new();
         m.v_reg[1] = 234;
         m.execute_instruction(0xF133);
-        assert_eq!(m.memory[m.i_reg as usize],     2);
+        assert_eq!(m.memory[m.i_reg as usize], 2);
         assert_eq!(m.memory[m.i_reg as usize + 1], 3);
         assert_eq!(m.memory[m.i_reg as usize + 2], 4);
     }
@@ -929,5 +997,4 @@ mod tests {
         assert_eq!(m.v_reg[4], 5);
         assert_eq!(m.v_reg[5], 0);
     }
-
 }
