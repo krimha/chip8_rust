@@ -1,5 +1,7 @@
 mod chip8;
 
+use std::{collections::HashMap, hash::Hash};
+
 //use std::thread;
 use std::time::Duration;
 use std::io::{self,Read};
@@ -16,6 +18,24 @@ const HEIGHT: u32 = 32 * SCALE;
 
 
 pub fn main() {
+    let mut keymap = HashMap::new();
+    keymap.insert(Keycode::Num1, 0x1);
+    keymap.insert(Keycode::Num2, 0x2);
+    keymap.insert(Keycode::Num3, 0x3);
+    keymap.insert(Keycode::Num4, 0xC);
+    keymap.insert(Keycode::Q,    0x4);
+    keymap.insert(Keycode::W,    0x5);
+    keymap.insert(Keycode::E,    0x6);
+    keymap.insert(Keycode::R,    0xD);
+    keymap.insert(Keycode::A,    0x7);
+    keymap.insert(Keycode::S,    0x8);
+    keymap.insert(Keycode::D,    0x9);
+    keymap.insert(Keycode::F,    0xE);
+    keymap.insert(Keycode::Z,    0xA);
+    keymap.insert(Keycode::X,    0x0);
+    keymap.insert(Keycode::C,    0xB);
+    keymap.insert(Keycode::V,    0xF);
+
     let mut machine = chip8::Machine::new();
     let mut file = std::fs::File::open("IBM_Logo.ch8").unwrap();
     // let mut file = std::fs::File::open("test_opcode.ch8").unwrap();
@@ -63,56 +83,21 @@ pub fn main() {
                     break 'running
                 },
                 Event::KeyDown { keycode: Some(kcode), ..} => {                        
-                    match kcode {
-                        Keycode::Num1 => machine.keyboard[0x1] = true,
-                        Keycode::Num2 => machine.keyboard[0x2] = true,
-                        Keycode::Num3 => machine.keyboard[0x3] = true,
-                        Keycode::Num4 => machine.keyboard[0xC] = true,
-
-                        Keycode::Q    => machine.keyboard[0x4] = true,
-                        Keycode::W    => machine.keyboard[0x5] = true,
-                        Keycode::E    => machine.keyboard[0x6] = true,
-                        Keycode::R    => machine.keyboard[0xD] = true,
-
-                        Keycode::A    => machine.keyboard[0x7] = true,
-                        Keycode::S    => machine.keyboard[0x8] = true,
-                        Keycode::D    => machine.keyboard[0x9] = true,
-                        Keycode::F    => machine.keyboard[0xE] = true,
-
-                        Keycode::Z    => machine.keyboard[0xA] = true,
-                        Keycode::X    => machine.keyboard[0x0] = true,
-                        Keycode::C    => machine.keyboard[0xB] = true,
-                        Keycode::V    => machine.keyboard[0xF] = true,
-                        _ => {},
+                    match keymap.get(&kcode) {
+                        Some(code) => machine.keyboard[*code as usize] = true,
+                        None => {},
                     }
                 },
                 Event::KeyUp { keycode: Some(kcode), ..} => {                        
-                    match kcode {
-                        Keycode::Num1 => machine.keyboard[0x1] = false,
-                        Keycode::Num2 => machine.keyboard[0x2] = false,
-                        Keycode::Num3 => machine.keyboard[0x3] = false,
-                        Keycode::Num4 => machine.keyboard[0xC] = false,
-
-                        Keycode::Q    => machine.keyboard[0x4] = false,
-                        Keycode::W    => machine.keyboard[0x5] = false,
-                        Keycode::E    => machine.keyboard[0x6] = false,
-                        Keycode::R    => machine.keyboard[0xD] = false,
-
-                        Keycode::A    => machine.keyboard[0x7] = false,
-                        Keycode::S    => machine.keyboard[0x8] = false,
-                        Keycode::D    => machine.keyboard[0x9] = false,
-                        Keycode::F    => machine.keyboard[0xE] = false,
-
-                        Keycode::Z    => machine.keyboard[0xA] = false,
-                        Keycode::X    => machine.keyboard[0x0] = false,
-                        Keycode::C    => machine.keyboard[0xB] = false,
-                        Keycode::V    => machine.keyboard[0xF] = false,
-                        _ => {},
+                    match keymap.get(&kcode) {
+                        Some(code) => machine.keyboard[*code as usize] = false,
+                        None => {},
                     }
                 }
                 _ => {}
             }
         }
+        println!("{:?}", machine.keyboard);
         canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60 ));
     }
