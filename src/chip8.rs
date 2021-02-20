@@ -26,6 +26,7 @@ pub struct Machine {
     pub sound_timer_register: u8,
 
     pub keypad_waiting: bool,
+    pub waiting_register: usize,
     // TODO: Timers
 }
 
@@ -51,6 +52,7 @@ impl Machine {
             sound_timer_register: 0,
 
             keypad_waiting: false,
+            waiting_register: 0,
         };
 
         m.memory[0x000] = 0b11110000;
@@ -350,12 +352,12 @@ impl Machine {
                 }
                 0xE => match kk {
                     0x9E => {
-                        if self.keyboard[x] {
+                        if self.keyboard[valx as usize] {
                             self.program_counter += 2;
                         }
                     }
                     0xA1 => {
-                        if !self.keyboard[x] {
+                        if !self.keyboard[valx as usize] {
                             self.program_counter += 2;
                         }
                     }
@@ -369,6 +371,7 @@ impl Machine {
                     // TODO: Write tests?
                     0x0A => {
                         self.keypad_waiting = true;
+                        self.waiting_register = x;
                     }
                     0x15 => {
                         self.delay_timer_register = self.v_reg[x];

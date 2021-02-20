@@ -37,10 +37,7 @@ pub fn main() {
     keymap.insert(Keycode::V,    0xF);
 
     let mut machine = chip8::Machine::new();
-    let mut file = std::fs::File::open("IBM_Logo.ch8").unwrap();
-    // let mut file = std::fs::File::open("test_opcode.ch8").unwrap();
-    //let mut file = std::fs::File::open("BC_test.ch8").unwrap();
-
+    let mut file = std::fs::File::open("breakout.ch8").unwrap();
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).unwrap();
 
@@ -64,17 +61,15 @@ pub fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     'running: loop {
+        // Always decrease timers
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60 ));
+        if machine.delay_timer_register > 0 {
+            machine.delay_timer_register -= 1;
+        }
 
-        let instruction:u16 = ((machine.memory[machine.program_counter as usize] as u16) << 8)
-                            | machine.memory[machine.program_counter as usize + 1] as u16;
-
-        machine.execute_instruction(instruction);
-        machine.program_counter += 2;
-
-        canvas.set_draw_color(Color::BLACK);
-        canvas.clear();
-
-        machine.render_display(&mut canvas, SCALE);
+        if machine.sound_timer_register > 0 {
+            machine.sound_timer_register -= 1;
+        }
 
         for event in event_pump.poll_iter() {
             match event {
@@ -84,7 +79,13 @@ pub fn main() {
                 },
                 Event::KeyDown { keycode: Some(kcode), ..} => {                        
                     match keymap.get(&kcode) {
-                        Some(code) => machine.keyboard[*code as usize] = true,
+                        Some(code) => {
+                            machine.keyboard[*code as usize] = true;
+                            if machine.keypad_waiting {
+                                machine.v_reg[machine.waiting_register] = *code;
+                                machine.keypad_waiting = false;
+                            }
+                        }
                         None => {},
                     }
                 },
@@ -97,9 +98,25 @@ pub fn main() {
                 _ => {}
             }
         }
+
+        if machine.keypad_waiting {
+            println!("WAITING");
+            continue;
+        }
+
+        let instruction:u16 = ((machine.memory[machine.program_counter as usize] as u16) << 8)
+                            | machine.memory[machine.program_counter as usize + 1] as u16;
+
+        machine.execute_instruction(instruction);
+        machine.program_counter += 2;
+
+        canvas.set_draw_color(Color::BLACK);
+        canvas.clear();
+
+        machine.render_display(&mut canvas, SCALE);
+
         println!("{:?}", machine.keyboard);
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60 ));
     }
 
 
@@ -157,6 +174,5 @@ pub fn main() {
         // The rest of the game loop goes here...
 
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
